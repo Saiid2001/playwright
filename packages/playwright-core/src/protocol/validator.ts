@@ -971,8 +971,13 @@ scheme.BrowserContextRecorderSupplementEnableParams = tObject({
   outputFile: tOptional(tString),
   handleSIGINT: tOptional(tBoolean),
   omitCallTracking: tOptional(tBoolean),
+  leaderWSEndpoint: tOptional(tString),
 });
 scheme.BrowserContextRecorderSupplementEnableResult = tOptional(tObject({}));
+scheme.BrowserContextRecorderSupplementPerformActionParams = tObject({
+  action: tAny,
+});
+scheme.BrowserContextRecorderSupplementPerformActionResult = tOptional(tObject({}));
 scheme.BrowserContextNewCDPSessionParams = tObject({
   page: tOptional(tChannel(['Page'])),
   frame: tOptional(tChannel(['Frame'])),

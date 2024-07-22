@@ -19,7 +19,7 @@
       "@trace/*": ["./packages/trace/src/*"],
       "@web/*": ["./packages/web/src/*"],
       "playwright-core/lib/*": ["./packages/playwright-core/src/*"],
-      "playwright/lib/*": ["./packages/playwright/src/*"],
+      "playwright/lib/*": ["./packages/playwright/src/*"]
     },
     "esModuleInterop": true,
     "strict": true,
@@ -29,12 +29,9 @@
     "noEmit": true,
     "noImplicitOverride": true,
     "useUnknownInCatchVariables": false,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "compileOnSave": true,
-  "include": ["packages"],
-  "exclude": [
-    "packages/*/lib",
-    "packages/html-reporter/",
-  ]
+  "include": ["packages", "playwright-remote-browser"],
+  "exclude": ["packages/*/lib", "packages/html-reporter/"]
 }

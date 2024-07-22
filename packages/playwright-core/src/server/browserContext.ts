@@ -65,6 +65,8 @@ export abstract class BrowserContext extends SdkObject {
     VideoStarted: 'videostarted',
   };
 
+  public _recorder: any;
+
   readonly _timeoutSettings = new TimeoutSettings();
   readonly _pageBindings = new Map<string, PageBinding>();
   readonly _activeProgressControllers = new Set<ProgressController>();

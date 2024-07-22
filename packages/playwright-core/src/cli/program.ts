@@ -92,6 +92,22 @@ Examples:
   $ debug node test.js
   $ debug npm run test`);
 
+  commandWithOpenOptions('mirror-leader [url]', 'open page and perform actions to mirror',
+    [
+      ['-o, --output <file name>', 'saves the generated script to a file'],
+      ['--target <language>', `language to generate, one of javascript, playwright-test, python, python-async, python-pytest, csharp, csharp-mstest, csharp-nunit, java, java-junit`, codegenId()],
+      ['--save-trace <filename>', 'record a trace for the session and save it to a file'],
+      ['--test-id-attribute <attributeName>', 'use the specified attribute to generate data test ID selectors'],
+      ['--leader-ws-endpoint <leaderWSEndpoint>', 'leader WebSocket endpoint to connect to'],
+    ]).action(function(url, options) {
+  mirrorLeader(options, url).catch(logErrorAndExit);
+}).addHelpText('afterAll', `
+Examples:
+
+  $ mirror-leader --leader-ws-endpoint ws://localhost:1234
+  $ mirror-leader --target=python --leader-ws-endpoint ws://localhost:1234
+  $ mirror-leader -b webkit https://example.com --leader-ws-endpoint ws://localhost:1234`);
+
 function suggestedBrowsersToInstall() {
   return registry.executables().filter(e => e.installType !== 'none' && e.type !== 'tool').map(e => e.name).join(', ');
 }
@@ -571,6 +587,26 @@ async function codegen(options: Options & { target: string, output?: string, tes
     testIdAttributeName,
     outputFile: outputFile ? path.resolve(outputFile) : undefined,
     handleSIGINT: false,
+  });
+  await openPage(context, url);
+}
+
+async function mirrorLeader(options: Options & { target: string, output?: string, testIdAttribute?: string, leaderWsEndpoint?: string }, url: string | undefined) {
+
+  const { target: language, output: outputFile, testIdAttribute: testIdAttributeName } = options;
+  const { context, launchOptions, contextOptions } = await launchContext(options, !!process.env.PWTEST_CLI_HEADLESS, process.env.PWTEST_CLI_EXECUTABLE_PATH);
+
+  await context._enableRecorder({
+    language,
+    launchOptions,
+    contextOptions,
+    device: options.device,
+    saveStorage: options.saveStorage,
+    mode: 'recording',
+    testIdAttributeName,
+    outputFile: outputFile ? path.resolve(outputFile) : undefined,
+    handleSIGINT: false,
+    leaderWSEndpoint: options.leaderWsEndpoint,
   });
   await openPage(context, url);
 }

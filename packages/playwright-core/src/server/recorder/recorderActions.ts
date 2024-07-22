@@ -153,7 +153,7 @@ type FrameDescriptionMainFrame = {
   isMainFrame: true;
 };
 
-type FrameDescriptionChildFrame = {
+export type FrameDescriptionChildFrame = {
   isMainFrame: false;
   selectorsChain: string[];
 };

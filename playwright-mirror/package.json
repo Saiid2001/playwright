@@ -1,0 +1,15 @@
+{
+  "name": "remote-browser",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "tsx server.ts",
+    "follower": "tsx followerClient.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tsx": "^4.16.2"
+  }
+}

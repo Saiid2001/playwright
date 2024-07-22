@@ -82,15 +82,19 @@ export class CodeGenerator extends EventEmitter {
     let eraseLastAction = false;
     if (this._lastAction && this._lastAction.frame.pageAlias === actionInContext.frame.pageAlias) {
       const lastAction = this._lastAction.action;
+
+      // SAIID: Removed for live mirroring we cannot erase.
+      
       // We augment last action based on the type.
-      if (this._lastAction && action.name === 'fill' && lastAction.name === 'fill') {
-        if (action.selector === lastAction.selector)
-          eraseLastAction = true;
-      }
-      if (lastAction && action.name === 'click' && lastAction.name === 'click') {
-        if (action.selector === lastAction.selector && action.clickCount > lastAction.clickCount)
-          eraseLastAction = true;
-      }
+      
+      // if (this._lastAction && action.name === 'fill' && lastAction.name === 'fill') {
+      //   if (action.selector === lastAction.selector)
+      //     eraseLastAction = true;
+      // }
+      // if (lastAction && action.name === 'click' && lastAction.name === 'click') {
+      //   if (action.selector === lastAction.selector && action.clickCount > lastAction.clickCount)
+      //     eraseLastAction = true;
+      // }
       if (lastAction && action.name === 'navigate' && lastAction.name === 'navigate') {
         if (action.url === lastAction.url) {
           // Already at a target URL.
@@ -99,10 +103,10 @@ export class CodeGenerator extends EventEmitter {
         }
       }
       // Check and uncheck erase click.
-      if (lastAction && (action.name === 'check' || action.name === 'uncheck') && lastAction.name === 'click') {
-        if (action.selector === lastAction.selector)
-          eraseLastAction = true;
-      }
+      // if (lastAction && (action.name === 'check' || action.name === 'uncheck') && lastAction.name === 'click') {
+      //   if (action.selector === lastAction.selector)
+      //     eraseLastAction = true;
+      // }
     }
 
     this._lastAction = actionInContext;
@@ -119,6 +123,9 @@ export class CodeGenerator extends EventEmitter {
     const action = this._lastAction;
     if (action)
       action.committed = true;
+
+    // send the action to the server
+    this.emit("commit", action);
   }
 
   signal(pageAlias: string, frame: Frame, signal: Signal) {
@@ -164,5 +171,9 @@ export class CodeGenerator extends EventEmitter {
     const actions = this._actions.map(a => languageGenerator.generateAction(a)).filter(Boolean);
     const text = [header, ...actions, footer].join('\n');
     return { header, footer, actions, text };
+  }
+
+  getLastAction() {
+    return this._lastAction;
   }
 }

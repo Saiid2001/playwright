@@ -45,6 +45,7 @@ import { Dialog } from './dialog';
 import { WebError } from './webError';
 import { TargetClosedError, parseError } from './errors';
 import { Clock } from './clock';
+import { Action } from '../server/recorder/recorderActions';
 
 export class BrowserContext extends ChannelOwner<channels.BrowserContextChannel> implements api.BrowserContext {
   _pages = new Set<Page>();
@@ -483,10 +484,18 @@ export class BrowserContext extends ChannelOwner<channels.BrowserContextChannel>
       testIdAttributeName?: string,
       outputFile?: string,
       handleSIGINT?: boolean,
-  }) {
+      leaderWSEndpoint?: string,
+  }) { 
     await this._channel.recorderSupplementEnable(params);
   }
+
+  async _performRecorderAction( params: {
+    action: Action,
+  }){
+    await this._channel.recorderSupplementPerformAction(params);
+  }
 }
+
 
 async function prepareStorageState(options: BrowserContextOptions): Promise<channels.BrowserNewContextParams['storageState']> {
   if (typeof options.storageState !== 'string')

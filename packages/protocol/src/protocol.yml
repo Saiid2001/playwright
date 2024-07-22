@@ -1201,6 +1201,12 @@ BrowserContext:
         outputFile: string?
         handleSIGINT: boolean?
         omitCallTracking: boolean?
+        leaderWSEndpoint: string?
+
+    recorderSupplementPerformAction:
+      experimental: True
+      parameters:
+        action: json
 
     newCDPSession:
       parameters:

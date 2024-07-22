@@ -294,6 +294,14 @@ export class BrowserContextDispatcher extends Dispatcher<BrowserContext, channel
     await Recorder.show(this._context, params);
   }
 
+  async recorderSupplementPerformAction(
+    params: channels.BrowserContextRecorderSupplementPerformActionParams
+  ): Promise<void> {
+
+    
+    await this._context._recorder._contextRecorder._performActionFromInContext(params.action);
+  }
+
   async pause(params: channels.BrowserContextPauseParams, metadata: CallMetadata) {
     // Debugger will take care of this.
   }

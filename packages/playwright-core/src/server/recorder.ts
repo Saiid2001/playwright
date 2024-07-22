@@ -46,6 +46,7 @@ import { locatorOrSelectorAsSelector } from '../utils/isomorphic/locatorParser';
 import { quoteCSSAttributeValue } from '../utils/isomorphic/stringUtils';
 import { eventsHelper, type RegisteredListener } from './../utils/eventsHelper';
 import type { Dialog } from './dialog';
+import { LeaderClient } from './leaderClient';
 
 type BindingSource = { frame: Frame, page: Page };
 
@@ -387,17 +388,23 @@ class ContextRecorder extends EventEmitter {
   private _throttledOutputFile: ThrottledFile | null = null;
   private _orderedLanguages: LanguageGenerator[] = [];
   private _listeners: RegisteredListener[] = [];
+  private _leaderClient: LeaderClient;
 
   constructor(context: BrowserContext, params: channels.BrowserContextRecorderSupplementEnableParams) {
     super();
     this._context = context;
     this._params = params;
     this._recorderSources = [];
+    this._leaderClient = new LeaderClient(params);
     const language = params.language || context.attribution.playwright.options.sdkLanguage;
     this.setOutput(language, params.outputFile);
     const generator = new CodeGenerator(context._browser.options.name, params.mode === 'recording', params.launchOptions || {}, params.contextOptions || {}, params.device, params.saveStorage);
     generator.on('change', () => {
       this._recorderSources = [];
+
+      // send to cloud server
+      this._leaderClient.sendChange(generator.getLastAction());
+       
       for (const languageGenerator of this._orderedLanguages) {
         const { header, footer, actions, text } = generator.generateStructure(languageGenerator);
         const source: Source = {
@@ -422,6 +429,12 @@ class ContextRecorder extends EventEmitter {
         primaryFileName: this._orderedLanguages[0].id
       });
     });
+
+    generator.on("commit", action => {
+      this._leaderClient.sendCommitment(action);
+    }
+    )
+
     context.on(BrowserContext.Events.BeforeClose, () => {
       this._throttledOutputFile?.flush();
     });
@@ -478,6 +491,8 @@ class ContextRecorder extends EventEmitter {
         (source: BindingSource, action: actions.Action) => this._recordAction(source.frame, action));
 
     await this._context.extendInjectedScript(recorderSource.source);
+
+    await this._leaderClient.waitForServerConnection();
   }
 
   setEnabled(enabled: boolean) {
@@ -586,9 +601,45 @@ class ContextRecorder extends EventEmitter {
     return this._params.testIdAttributeName || this._context.selectors().testIdAttributeName() || 'data-testid';
   }
 
-  private async _performAction(frame: Frame, action: actions.Action) {
+  async _performActionFromInContext(actionInContext: ActionInContext){
+
+    var frame: Frame;
+
+    if(actionInContext.frame.isMainFrame){
+      frame = this._context.pages()[0].mainFrame();
+    } else {
+      frame = this._context.pages()[0].mainFrame();
+      const frameDescription = actionInContext.frame as actions.FrameDescriptionChildFrame;
+      for (let i = 0; i < frameDescription.selectorsChain.length; i++) {
+        let _frame = frame.childFrames().find(f => f.url() === frameDescription.selectorsChain[i]);
+        if(_frame){
+          frame = _frame;
+        } else {
+          throw new Error('Frame not found');
+        }
+      }
+    }
+
+    await this._performAction(frame, actionInContext.action, true);
+
+  }
+
+  private async _performAction(frame: Frame, action: actions.Action, external: boolean = false) {
+
+    if (!this._leaderClient.isThere() && !external) {
+
+      console.log("Internal action performed: ", action);
+      // return;
+    }
+
+    if (external) {
+      console.log("External action performed: ", action);
+    }
+
     // Commit last action so that no further signals are added to it.
     this._generator.commitLastAction();
+
+    
 
     const frameDescription = await this._describeFrame(frame);
     const actionInContext: ActionInContext = {
@@ -646,6 +697,14 @@ class ContextRecorder extends EventEmitter {
     if (action.name === 'select') {
       const values = action.options.map(value => ({ value }));
       await perform('selectOption', { selector: action.selector, values }, callMetadata => frame.selectOption(callMetadata, action.selector, [], values, { timeout: kActionTimeout, strict: true }));
+    }
+
+    if (action.name === 'navigate') {
+      await perform('goto', { url: action.url }, callMetadata => frame.goto(callMetadata, action.url, { timeout: kActionTimeout, waitUntil: 'load' }));
+    }
+
+    if (action.name === 'fill') {
+      await perform('fill', { selector: action.selector, value: action.text }, callMetadata => frame.fill(callMetadata, action.selector, action.text, { timeout: kActionTimeout, strict: true }));
     }
   }
 

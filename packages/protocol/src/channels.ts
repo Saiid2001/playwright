@@ -1534,6 +1534,7 @@ export interface BrowserContextChannel extends BrowserContextEventTarget, EventT
   storageState(params?: BrowserContextStorageStateParams, metadata?: CallMetadata): Promise<BrowserContextStorageStateResult>;
   pause(params?: BrowserContextPauseParams, metadata?: CallMetadata): Promise<BrowserContextPauseResult>;
   recorderSupplementEnable(params: BrowserContextRecorderSupplementEnableParams, metadata?: CallMetadata): Promise<BrowserContextRecorderSupplementEnableResult>;
+  recorderSupplementPerformAction(params: BrowserContextRecorderSupplementPerformActionParams, metadata?: CallMetadata): Promise<BrowserContextRecorderSupplementPerformActionResult>;
   newCDPSession(params: BrowserContextNewCDPSessionParams, metadata?: CallMetadata): Promise<BrowserContextNewCDPSessionResult>;
   harStart(params: BrowserContextHarStartParams, metadata?: CallMetadata): Promise<BrowserContextHarStartResult>;
   harExport(params: BrowserContextHarExportParams, metadata?: CallMetadata): Promise<BrowserContextHarExportResult>;
@@ -1771,6 +1772,7 @@ export type BrowserContextRecorderSupplementEnableParams = {
   outputFile?: string,
   handleSIGINT?: boolean,
   omitCallTracking?: boolean,
+  leaderWSEndpoint?: string,
 };
 export type BrowserContextRecorderSupplementEnableOptions = {
   language?: string,
@@ -1784,8 +1786,16 @@ export type BrowserContextRecorderSupplementEnableOptions = {
   outputFile?: string,
   handleSIGINT?: boolean,
   omitCallTracking?: boolean,
+  leaderWSEndpoint?: string,
 };
 export type BrowserContextRecorderSupplementEnableResult = void;
+export type BrowserContextRecorderSupplementPerformActionParams = {
+  action: any,
+};
+export type BrowserContextRecorderSupplementPerformActionOptions = {
+
+};
+export type BrowserContextRecorderSupplementPerformActionResult = void;
 export type BrowserContextNewCDPSessionParams = {
   page?: PageChannel,
   frame?: FrameChannel,
