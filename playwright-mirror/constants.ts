@@ -4,6 +4,11 @@ export const MAX_WAIT_FOR_SERVER_CONNECTION = 30000;
 
 type Change = any;
 
+export type RegistrationData = {
+  type: "leader" | "follower";
+};
+
+
 export type BaseMessage = {
   type: string,
 }
@@ -28,7 +33,12 @@ export type LeaderChangeMessage = BaseMessage & {
   data: Change,
 }
 
-export type Message = ErrorMessage | ManagementMessage | LeaderChangeMessage;
+export type RegisterMessage = {
+  type: "register",
+  data: RegistrationData
+}
+
+export type Message = ErrorMessage | ManagementMessage | LeaderChangeMessage | RegisterMessage;
 
 export const errors = {
   LEADER_ALREADY_CONNECTED: "LEADER_ALREADY_CONNECTED",
@@ -48,4 +58,3 @@ export type WebSocketClient = {
   channel: WebSocket;
   id: string;
 }
-

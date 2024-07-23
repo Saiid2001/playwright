@@ -1,15 +1,23 @@
 {
-  "name": "remote-browser",
+  "name": "playwright-mirror",
   "type": "module",
   "version": "0.0.1",
-  "scripts": {
+  "main": "index.ts",
+"scripts": {
     "start": "tsx server.ts",
-    "follower": "tsx followerClient.ts"
+    "follower": "tsx followerClient.ts",
+    "cli": "tsx program.ts"
+  },
+  "bin": {
+    "playwright-mirror": "program.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "tsx": "^4.16.2"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
   }
 }

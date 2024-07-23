@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { spawn } from "child_process";
 import { SignalingServerDisconnectedError } from "./errors.js";
 import * as Constants from "./constants.js";
 import { chromium, Browser, BrowserContext } from "playwright";
@@ -14,13 +15,16 @@ export class Follower {
   private _browserContext: BrowserContext;
   private _recorder: any;
   private _params: FollowerParams;
+  private _browserWsEndpoint: string;
+  private _wsEndpoint: string;
   private _waitingForServerConnection = true;
   private _ready = false;
 
   constructor(params: FollowerParams) {
     this._params = params;
-    this._channel = new WebSocket(params.wsEndpoint);
-    this._register();
+    this._browserWsEndpoint =
+      params.browserWsEndpoint || "ws://localhost:9222/0000";
+    this._wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
   }
 
   /**
@@ -154,7 +158,7 @@ export class Follower {
    * @returns {Promise<void>}
    */
   async connectBrowser() {
-    this._browser = await chromium.connect(this._params.browserWsEndpoint);
+    this._browser = await chromium.connect(this._browserWsEndpoint);
     this._browserContext = await this._browser.newContext();
 
     await this._browserContext.newPage();
@@ -178,24 +182,64 @@ export class Follower {
 
     this._browserContext._performRecorderAction({ action: change });
   }
+
+  async start() {
+    this._channel = new WebSocket(this._wsEndpoint);
+    this._register();
+    
+    await this.connectBrowser();
+    await this.tryFollowerReady();
+    await this.waitForServerConnection();
+  }
+
+  async stop() {
+    await this._browser.close();
+    this._channel.close();
+  }
+
+  spawnProcess(params: FollowerParams) {
+    const follower = spawn("node", [
+      "run",
+      "cli",
+      "follower",
+      `--ws-endpoint ${params.wsEndpoint}`,
+      `--browser-ws-endpoint ${params.browserWsEndpoint}`,
+    ]);
+
+    follower.stdout.on("data", (data) => {
+      console.log(`[follower]: ${data}`);
+    });
+
+    follower.stderr.on("data", (data) => {
+      console.error(`[follower] ERROR: ${data}`);
+    });
+
+    follower.on("close", (code) => {
+      console.log(`[follower] exited with code ${code}`);
+    });
+
+    return follower;
+  }
 }
 
 // Usage example
 // Run the following command in the terminal to start the follower client:
 // npm run follower [browser ws endpoint? (default: ws://localhost:9222/0000)]
 
-const browserWsEndpoint = process.argv[2]
-  ? process.argv[2]
-  : "ws://localhost:9222/0000";
+// const browserWsEndpoint = process.argv[2]
+//   ? process.argv[2]
+//   : "ws://localhost:9222/0000";
 
-const follower = new Follower({
-  wsEndpoint: "ws://localhost:8080",
-  browserWsEndpoint,
-});
+// const follower = new Follower({
+//   wsEndpoint: "ws://localhost:8080",
+//   browserWsEndpoint,
+// });
 
-await follower.connectBrowser();
+// await follower.connectBrowser();
 
-// removing it should be fine but try a last time
-follower.tryFollowerReady();
+// // removing it should be fine but try a last time
+// follower.tryFollowerReady();
 
-await follower.waitForServerConnection();
+// await follower.waitForServerConnection();
+
+export default Follower;
