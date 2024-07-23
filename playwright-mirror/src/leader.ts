@@ -4,10 +4,11 @@ import * as Constants from "./constants.js";
 type LeaderParams = {
   wsEndpoint?: string;
   // browserWsEndpoint?: string;
+  url?: string;
+  storage?: string;
 };
 
 export class Leader {
-  
   private _params: LeaderParams;
   // private _browserWsEndpoint: string;
   // private _isRemoteBrowser: boolean;
@@ -19,14 +20,12 @@ export class Leader {
   constructor(params: LeaderParams) {
     this._params = params;
     // this._browserWsEndpoint =
-      // params.browserWsEndpoint || "ws://localhost:9222/0000";
+    // params.browserWsEndpoint || "ws://localhost:9222/0000";
 
     // this._isRemoteBrowser = !!params.browserWsEndpoint;
 
     this._wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
   }
-
-
 
   async stop() {
     if (this._browserProcess) {
@@ -34,19 +33,19 @@ export class Leader {
     }
   }
 
-
   static spawnProcess(params: LeaderParams) {
-
     const wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
 
     const leader = spawn("npx", [
       "playwright",
       "mirror-leader",
+      params.url ? params.url : "",
       `--leader-ws-endpoint`,
-      wsEndpoint
-      // `--browser-ws-endpoint ${params.browserWsEndpoint}`, 
+      wsEndpoint,
+      params.storage ? `--load-storage=${params.storage}` : "",
+      // `--browser-ws-endpoint ${params.browserWsEndpoint}`,
     ]);
-    
+
     leader.stdout.on("data", (data) => {
       console.log(`[leader]: ${data}`);
     });
@@ -61,8 +60,6 @@ export class Leader {
 
     return leader;
   }
-
-  
 }
 
 export default Leader;

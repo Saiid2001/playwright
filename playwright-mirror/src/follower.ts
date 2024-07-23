@@ -8,6 +8,8 @@ import { wait } from "./utils.js";
 type FollowerParams = {
   wsEndpoint?: string;
   browserWsEndpoint?: string;
+  storage?: string;
+  url?: string;
 };
 
 export class Follower {
@@ -171,14 +173,21 @@ export class Follower {
    */
   async connectBrowser() {
     this._browser = await chromium.connect(this._browserWsEndpoint);
-    this._browserContext = await this._browser.newContext();
+    this._browserContext = await this._browser.newContext({
+      storageState: this._params.storage ? this._params.storage : undefined,
+    });
 
-    await this._browserContext.newPage();
+    const page = await this._browserContext.newPage();
 
     this._recorder = await (this._browserContext as any)._enableRecorder({
       language: "javascript",
       mode: "recording",
     });
+
+    // visit the page
+    if (this._params.url) {
+      await page.goto(this._params.url);
+    }
 
     this.tryFollowerReady();
   }
@@ -205,7 +214,6 @@ export class Follower {
     });
 
     process.on("uncaughtException", (error) => {
-      
       try {
         this._browserProcess?.kill();
       } catch (e) {
@@ -245,14 +253,23 @@ export class Follower {
   }
 
   static spawnProcess(params: FollowerParams) {
+    
+    const wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
+    const browserWsEndpoint = params.browserWsEndpoint || "ws://localhost:9222/0000";
+    
     const follower = spawn("npm", [
       "--prefix",
       Constants.pkg_path,
       "run",
       "cli",
       "follower",
-      `--ws-endpoint ${params.wsEndpoint}`,
-      `--browser-ws-endpoint ${params.browserWsEndpoint}`,
+      `--`,
+      params.wsEndpoint?`--ws-endpoint`:``,
+      params.wsEndpoint? wsEndpoint : "",
+      params.browserWsEndpoint?`--browser-ws-endpoint`:``,
+      params.browserWsEndpoint?browserWsEndpoint:"",
+      params.storage ? `--storage=${params.storage}` : "",
+      params.url ? `--url=${params.url}` : "",
     ]);
 
     follower.stdout.on("data", (data) => {

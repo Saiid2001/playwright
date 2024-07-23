@@ -16,7 +16,7 @@ program
     "-e, --expected-followers <expectedFollowers>",
     "Expected number of followers"
   )
-  .action((options) => {
+  .action((options: { port: number; host: string; strict: boolean; expectedFollowers: number }) => {
     const signalingServer = new SignalingServer({
       port: options.port,
       host: options.host,
@@ -38,11 +38,19 @@ program
     "-b, --browser-ws-endpoint <browserWsEndpoint>",
     "Browser WebSocket endpoint to connect to"
   )
-  .action(async (options) => {
+  .option(
+    "-s, --storage <storage>",
+    "Path to the storage file to save the session to"
+  )
+  .option("-u, --url <url>", "URL to navigate to")
+  .action(async (options: { wsEndpoint: string; browserWsEndpoint: string; storage: string; url: string }) => {
+
     // Start the follower client
     const follower = new Follower({
       wsEndpoint: options.wsEndpoint,
       browserWsEndpoint: options.browserWsEndpoint,
+      storage: options.storage,
+      url: options.url,
     });
 
     await follower.start();
