@@ -291,7 +291,7 @@ export class BrowserContextDispatcher extends Dispatcher<BrowserContext, channel
   }
 
   async recorderSupplementEnable(params: channels.BrowserContextRecorderSupplementEnableParams): Promise<void> {
-    await Recorder.show(this._context, params);
+    this._context._recorder = await Recorder.show(this._context, params);
   }
 
   async recorderSupplementPerformAction(

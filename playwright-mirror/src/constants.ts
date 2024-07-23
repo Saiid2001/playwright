@@ -58,3 +58,7 @@ export type WebSocketClient = {
   channel: WebSocket;
   id: string;
 }
+
+// get the directory of the current file
+export const __dirname = new URL('.', import.meta.url).pathname;
+export const pkg_path = new URL('../', import.meta.url).pathname;

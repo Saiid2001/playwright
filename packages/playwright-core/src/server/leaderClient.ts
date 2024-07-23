@@ -109,7 +109,7 @@ export class LeaderClient {
         this._waitingForServerConnection = false;
         break;
       case "PARTIES_CHANGED":
-        throw new SignalingServerDisconnectedError();
+        // throw new SignalingServerDisconnectedError();
         break;
     }
   }

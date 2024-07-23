@@ -1,7 +1,13 @@
 {
-    "compilerOptions": {
-      "target": "es2022",
-      "module": "nodenext",
-      "esModuleInterop": true,
-    }
-  }
+  "compilerOptions": {
+    "module": "ES2022",
+    "target": "ES2016",
+    "declaration": true,
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "moduleResolution": "Bundler",
+  },
+  "include": [
+    "src/**/*"
+  ]
+}

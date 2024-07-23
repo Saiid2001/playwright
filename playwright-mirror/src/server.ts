@@ -6,6 +6,7 @@ import {
   errors,
   management,
   Message,
+  pkg_path,
   RegistrationData,
   WebSocketClient,
 } from "./constants.js";
@@ -23,7 +24,7 @@ class SignalingServer {
 
   private leader: WebSocketClient | null = null;
   private followers: WebSocketClient[] = [];
-  private _waitingForExpectedFollowers;
+  private _waitingForExpectedFollowers = true;
   private _restarting = false;
 
   private _wss: WebSocketServer | null = null;
@@ -38,6 +39,12 @@ class SignalingServer {
   }
 
   closeAllConnections() {
+    try {
+      throw new Error("Closing all connections");
+    } catch (err) {
+      console.log(err.stack);
+    }
+
     if (this.leader) this.leader.channel.close();
     for (var follower of this.followers) {
       if (follower) follower.channel.close();
@@ -79,6 +86,12 @@ class SignalingServer {
   }
 
   sendSetupCompromizedMessages() {
+    try {
+      throw new Error("Setup compromised");
+    } catch (err) {
+      console.log(err.stack);
+    }
+
     console.log("Setup compromised");
     for (var party of [this.leader, ...this.followers]) {
       if (!party) continue;
@@ -158,11 +171,15 @@ class SignalingServer {
     // send connection success message
     if (this.areExpectedPartiesConnected()) this.sendSetupCompleteMessages();
 
+    var globalThis = this;
+
     // register leader messages
-    client.channel.on("message", this.processLeaderMessage);
+    client.channel.on("message", (message) => {
+      globalThis.processLeaderMessage(message);
+    });
 
     client.channel.on("close", () => {
-      this.leader = null;
+      globalThis.leader = null;
       this.sendSetupCompromizedMessages();
     });
   }
@@ -211,8 +228,10 @@ class SignalingServer {
       })
     );
 
+    var globalThis = this;
+
     client.channel.on("close", () => {
-      this.followers = this.followers.filter(
+      globalThis.followers = globalThis.followers.filter(
         (follower) => follower.channel !== client.channel
       );
       this.sendSetupCompromizedMessages();
@@ -280,18 +299,41 @@ class SignalingServer {
         }
       });
     });
+
+    process.on("SIGINT", () => {
+      this.closeAllConnections();
+      wss.close();
+    });
+
+    process.on("SIGTERM", () => {
+      this.closeAllConnections();
+      wss.close();
+    });
+
+  }
+
+  static start(params: SignalingServerParams) {
+    const server = new SignalingServer(params);
+    server.start();
+    return server;
   }
 
   static spawnProcess(params: SignalingServerParams) {
+    var port = params.port || 8080;
+    var host = params.host || "localhost";
+    var strict = params.strict || true;
+    var expectedFollowers = params.expectedFollowers || 1;
+
     const server = spawn("npm", [
+      "--prefix",
+      pkg_path,
       "run",
       "cli",
-      "playwright-mirror",
       "server",
-      `--port ${params.port}`,
-      `--host ${params.host}`,
-      params.strict ? `--strict` : "",
-      `--expected-followers ${params.expectedFollowers}`,
+      `--port=${port}`,
+      `--host=${host}`,
+      `--strict=${strict}`,
+      `--expected-followers=${expectedFollowers}`,
     ]);
 
     server.stdout.on("data", (data) => {
@@ -299,7 +341,7 @@ class SignalingServer {
     });
 
     server.stderr.on("data", (data) => {
-      console.error(`[signaling-server]: ${data}`);
+      throw new Error(`[signaling-server] ERROR: ${data}`);
     });
 
     server.on("close", (code) => {
