@@ -28,11 +28,11 @@ export class Follower {
   constructor(params: FollowerParams) {
     this._params = params;
     this._browserWsEndpoint =
-      params.browserWsEndpoint || "ws://localhost:9222/0000";
+      params.browserWsEndpoint || "ws://127.0.0.1:9222/0000";
 
     this._isRemoteBrowser = !!params.browserWsEndpoint;
 
-    this._wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
+    this._wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
   }
 
   /**
@@ -254,8 +254,8 @@ export class Follower {
 
   static spawnProcess(params: FollowerParams) {
     
-    const wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
-    const browserWsEndpoint = params.browserWsEndpoint || "ws://localhost:9222/0000";
+    const wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
+    const browserWsEndpoint = params.browserWsEndpoint || "ws://127.0.0.1:9222/0000";
     
     const follower = spawn("npm", [
       "--prefix",
@@ -291,6 +291,8 @@ export class Follower {
 
   spawnBrowser() {
     const browser = spawn("npx", [
+      "--prefix",
+      Constants.pkg_path,
       "playwright",
       "launch-server",
       "--browser=chromium",

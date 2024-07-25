@@ -60,5 +60,18 @@ export type WebSocketClient = {
 }
 
 // get the directory of the current file
-export const __dirname = new URL('.', import.meta.url).pathname;
-export const pkg_path = new URL('../', import.meta.url).pathname;
+
+function isTypescript() {
+  return import.meta.url.includes("src");
+}
+
+var _pkg_path: string;
+
+if (!isTypescript()) {
+  _pkg_path = new URL('../../', import.meta.url).pathname;
+} else {
+  _pkg_path = new URL('../', import.meta.url).pathname;
+}
+
+export const pkg_path = _pkg_path;
+

@@ -2,28 +2,48 @@
   "name": "playwright-mirror",
   "type": "module",
   "version": "0.0.1",
-  "main": "dist/index.js",
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/esm/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "/dist"
+    "lib/"
   ],
   "scripts": {
-    "start": "tsx server.ts",
-    "follower": "tsx followerClient.ts",
-    "cli": "node dist/program.js",
-    "prepare": "tsc"
+    "start": "tsx src/server.ts",
+    "follower": "tsx src/follower.ts",
+    "cli": "node lib/esm/program.js",
+    "tsc": "tsc -p tsconfig.json",
+    "postinstall": " tsc -p tsconfig.json && npx playwright install"
+  },
+  "exports": {
+    "require": "./lib/cjs/index.js",
+    "import": "./lib/esm/index.js",
+    "types": "./lib/esm/index.d.ts"
   },
   "bin": {
-    "playwright-mirror": "program.ts"
+    "playwright-mirror": "./lib/esm/program.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^18.19.42",
+    "@types/node-schedule": "2.1.0",
+    "@types/uuid": "9.0.1",
+    "@types/validator": "13.7.12",
+    "@typescript-eslint/eslint-plugin": "6.4.0",
+    "@typescript-eslint/parser": "6.4.0",
     "esbuild": "0.23.0",
-    "tsx": "^4.16.2"
+    "eslint": "8.47.0",
+    "tslib": "2.5.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "@types/node": "^18.19.42",
+    "commander": "^12.1.0",
+    "playwright": "file:../packages/playwright",
+    "playwright-core": "file:../packages/playwright-core",
+    "ws": "^8.18.0"
   }
 }

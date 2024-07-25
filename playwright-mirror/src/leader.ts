@@ -24,7 +24,7 @@ export class Leader {
 
     // this._isRemoteBrowser = !!params.browserWsEndpoint;
 
-    this._wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
+    this._wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
   }
 
   async stop() {
@@ -34,7 +34,7 @@ export class Leader {
   }
 
   static spawnProcess(params: LeaderParams) {
-    const wsEndpoint = params.wsEndpoint || "ws://localhost:8080";
+    const wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
 
     const leader = spawn("npx", [
       "playwright",

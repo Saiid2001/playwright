@@ -34,7 +34,7 @@ class SignalingServer {
   constructor(params: SignalingServerParams) {
     this.expectedFollowers = params.expectedFollowers || 1;
     this.STRICT = params.strict || true;
-    this._host = params.host || "localhost";
+    this._host = params.host || "127.0.0.1";
     this._port = params.port || 8080;
   }
 
