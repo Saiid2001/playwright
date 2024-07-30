@@ -39,12 +39,6 @@ class SignalingServer {
   }
 
   closeAllConnections() {
-    try {
-      throw new Error("Closing all connections");
-    } catch (err) {
-      console.log(err.stack);
-    }
-
     if (this.leader) this.leader.channel.close();
     for (var follower of this.followers) {
       if (follower) follower.channel.close();
