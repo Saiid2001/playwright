@@ -3,13 +3,10 @@ import { spawn } from "child_process";
 import { SignalingServerDisconnectedError } from "./errors.js";
 import * as Constants from "./constants.js";
 import { chromium, Browser, BrowserContext } from "playwright";
-import { wait } from "./utils.js";
+import { BrowsingClientParams, wait } from "./utils.js";
 
-type FollowerParams = {
-  wsEndpoint?: string;
+export type FollowerParams = BrowsingClientParams & {
   browserWsEndpoint?: string;
-  storage?: string;
-  url?: string;
 };
 
 export class Follower {
@@ -33,6 +30,15 @@ export class Follower {
     this._isRemoteBrowser = !!params.browserWsEndpoint;
 
     this._wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
+  }
+
+  // getters
+  get browser() {
+    return this._browser;
+  }
+
+  get browserContext() {
+    return this._browserContext;
   }
 
   /**
@@ -177,17 +183,10 @@ export class Follower {
       storageState: this._params.storage ? this._params.storage : undefined,
     });
 
-    const page = await this._browserContext.newPage();
-
     this._recorder = await (this._browserContext as any)._enableRecorder({
       language: "javascript",
       mode: "recording",
     });
-
-    // visit the page
-    if (this._params.url) {
-      await page.goto(this._params.url);
-    }
 
     this.tryFollowerReady();
   }
