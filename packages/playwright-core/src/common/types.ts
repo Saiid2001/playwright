@@ -16,6 +16,7 @@
 
 export type Size = { width: number, height: number };
 export type Point = { x: number, y: number };
+export type ElementPoint = Point & { w: number, h: number , scrollX?: number, scrollY?: number };
 export type Rect = Size & Point;
 export type Quad = [ Point, Point, Point, Point ];
 export type URLMatch = string | RegExp | ((url: URL) => boolean);

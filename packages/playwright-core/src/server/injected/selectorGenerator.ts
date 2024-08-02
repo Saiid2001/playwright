@@ -70,7 +70,7 @@ export type GenerateSelectorOptions = {
   multiple?: boolean;
 };
 
-export function generateSelector(injectedScript: InjectedScript, targetElement: Element, options: GenerateSelectorOptions): { selector: string, selectors: string[], elements: Element[] } {
+export function generateSelector(injectedScript: InjectedScript, targetElement: Element, options: GenerateSelectorOptions): { selector: string, selectors: string[], elements: Element[], position: { x: number, y: number }, scroll: { x: number, y: number } } {
   injectedScript._evaluator.begin();
   beginAriaCaches();
   try {
@@ -124,9 +124,21 @@ export function generateSelector(injectedScript: InjectedScript, targetElement: 
     }
     const selector = selectors[0];
     const parsedSelector = injectedScript.parseSelector(selector);
+    
+    // get the position of the targetElement on the page
+    const rect = targetElement.getBoundingClientRect();
+    const x = rect.x + rect.width / 2;
+    const y = rect.y + rect.height / 2;
+
+    // get scroll information
+    const scrollX = targetElement.ownerDocument.defaultView!.scrollX;
+    const scrollY = targetElement.ownerDocument.defaultView!.scrollY;
+
     return {
       selector,
       selectors,
+      position: { x, y },
+      scroll: { x: scrollX, y: scrollY },
       elements: injectedScript.querySelectorAll(parsedSelector, options.root ?? targetElement.ownerDocument)
     };
   } finally {

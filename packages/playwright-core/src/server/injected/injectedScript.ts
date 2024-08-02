@@ -154,7 +154,7 @@ export class InjectedScript {
   }
 
   generateSelector(targetElement: Element, options: GenerateSelectorOptions) {
-    return generateSelector(this, targetElement, options);
+    return generateSelector(this, targetElement, {...options, multiple: true});
   }
 
   generateSelectorSimple(targetElement: Element, options?: GenerateSelectorOptions): string {

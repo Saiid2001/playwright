@@ -670,7 +670,7 @@ class ContextRecorder extends EventEmitter {
         callMetadata.endTime = monotonicTime();
         await frame.instrumentation.onAfterCall(frame, callMetadata);
         this._generator.performedActionFailed(actionInContext);
-        return;
+        return false;
       }
 
       callMetadata.endTime = monotonicTime();
@@ -678,12 +678,51 @@ class ContextRecorder extends EventEmitter {
 
       this._setCommittedAfterTimeout(actionInContext);
       this._generator.didPerformAction(actionInContext);
+
+      return true;
     };
+
+
+    const performOnPageByElementPosition = async (action: string, frame: Frame) => {
+
+      if (!actionInContext.action.elementPosition) return;
+
+      const {x, y, w, h, scrollX, scrollY} = actionInContext.action.elementPosition;
+
+      // scroll the frame
+
+      if (scrollX && scrollY) 
+      await frame.evaluateExpression(`window.scrollTo(${scrollX}, ${scrollY})`);
+
+
+      const pageAction = {
+        name: actionInContext.action.name,
+        selector: 'html',
+        signals: [],
+        position: {
+          x: x + w / 2 + (scrollX || 0),
+          y: y + h / 2 + (scrollY || 0)
+        }
+      }
+
+      // click in the position at position x, y
+      await perform('click', { x, y }, async callMetadata => {
+        await frame.click(callMetadata, pageAction.selector, { position: pageAction.position, timeout: 5000, strict: true });
+      });
+    }
 
     const kActionTimeout = 5000;
     if (action.name === 'click') {
       const { options } = toClickOptions(action);
-      await perform('click', { selector: action.selector }, callMetadata => frame.click(callMetadata, action.selector, { ...options, timeout: kActionTimeout, strict: true }));
+
+      const selectors = action.selectors? action.selectors : [action.selector];
+      let success=false;
+      for (var selector of selectors) {
+         success = await perform('click', { selector: selector }, callMetadata => frame.click(callMetadata, selector, { ...options, timeout: kActionTimeout, strict: true }));
+         if (success) break;
+        }
+
+      if (!success) performOnPageByElementPosition('click', frame );
     }
     if (action.name === 'press') {
       const modifiers = toModifiers(action.modifiers);

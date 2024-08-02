@@ -16,7 +16,7 @@
 
 import type * as actions from '../../recorder/recorderActions';
 import type { InjectedScript } from '../injectedScript';
-import type { Point } from '../../../common/types';
+import type { ElementPoint, Point } from '../../../common/types';
 import type { Mode, OverlayState, UIState } from '@recorder/recorderTypes';
 import type { ElementText } from '../selectorUtils';
 import type { Highlight, HighlightOptions } from '../highlight';
@@ -132,10 +132,11 @@ class InspectTool implements RecorderTool {
     let model: HighlightModel | null = null;
     let selectors: string[] = [];
     if (this._hoveredElement) {
-      const generated = this._recorder.injectedScript.generateSelector(this._hoveredElement, { testIdAttributeName: this._recorder.state.testIdAttributeName, multiple: false });
+      const generated = this._recorder.injectedScript.generateSelector(this._hoveredElement, { testIdAttributeName: this._recorder.state.testIdAttributeName, multiple: true });
       selectors = generated.selectors;
       model = {
         selector: generated.selector,
+        selectors: generated.selectors,
         elements: generated.elements,
         tooltipText: this._recorder.injectedScript.utils.asLocator(this._recorder.state.language, generated.selector),
         tooltipFooter: selectors.length > 1 ? `Click to select, right-click for more options` : undefined,
@@ -243,6 +244,8 @@ class RecordActionTool implements RecorderTool {
       this._performAction({
         name: checkbox.checked ? 'check' : 'uncheck',
         selector: this._hoveredModel!.selector,
+        selectors: this._hoveredModel!.selectors,
+        position: positionForEvent(event),
         signals: [],
       });
       return;
@@ -251,7 +254,9 @@ class RecordActionTool implements RecorderTool {
     this._performAction({
       name: 'click',
       selector: this._hoveredModel!.selector,
+      selectors: this._hoveredModel!.selectors,
       position: positionForEvent(event),
+      elementPosition: positionForElement(event.target as HTMLElement),
       signals: [],
       button: buttonForEvent(event),
       modifiers: modifiersForEvent(event),
@@ -327,6 +332,7 @@ class RecordActionTool implements RecorderTool {
         name: 'fill',
         // must use hoveredModel instead of activeModel for it to work in webkit
         selector: this._hoveredModel!.selector,
+        selectors: this._hoveredModel!.selectors,
         signals: [],
         text: target.value,
       });
@@ -345,6 +351,7 @@ class RecordActionTool implements RecorderTool {
       this._recorder.delegate.recordAction?.({
         name: 'fill',
         selector: this._activeModel!.selector,
+        selectors: this._activeModel!.selectors,
         signals: [],
         text: target.isContentEditable ? target.innerText : (target as HTMLInputElement).value,
       });
@@ -357,6 +364,8 @@ class RecordActionTool implements RecorderTool {
       this._performAction({
         name: 'select',
         selector: this._activeModel!.selector,
+        selectors: this._activeModel!.selectors,
+        elementPosition: positionForElement(selectElement),
         options: [...selectElement.selectedOptions].map(option => option.value),
         signals: []
       });
@@ -379,6 +388,8 @@ class RecordActionTool implements RecorderTool {
         this._performAction({
           name: checkbox.checked ? 'uncheck' : 'check',
           selector: this._activeModel!.selector,
+          selectors: this._activeModel!.selectors,
+          elementPosition: positionForElement(checkbox),
           signals: [],
         });
         return;
@@ -388,6 +399,7 @@ class RecordActionTool implements RecorderTool {
     this._performAction({
       name: 'press',
       selector: this._activeModel!.selector,
+      selectors: this._activeModel!.selectors,
       signals: [],
       key: event.key,
       modifiers: modifiersForEvent(event),
@@ -515,10 +527,10 @@ class RecordActionTool implements RecorderTool {
       this._recorder.updateHighlight(null, true);
       return;
     }
-    const { selector, elements } = this._recorder.injectedScript.generateSelector(this._hoveredElement, { testIdAttributeName: this._recorder.state.testIdAttributeName });
+    const { selector, elements, selectors  } = this._recorder.injectedScript.generateSelector(this._hoveredElement, { testIdAttributeName: this._recorder.state.testIdAttributeName });
     if (this._hoveredModel && this._hoveredModel.selector === selector)
       return;
-    this._hoveredModel = selector ? { selector, elements, color: '#dc6f6f7f' } : null;
+    this._hoveredModel = selector ? { selector, selectors, elements, color: '#dc6f6f7f' } : null;
     this._recorder.updateHighlight(this._hoveredModel, true);
   }
 }
@@ -622,7 +634,7 @@ class TextAssertionTool implements RecorderTool {
     if (this._kind === 'value') {
       if (!this._elementHasValue(target))
         return null;
-      const { selector } = this._recorder.injectedScript.generateSelector(target, { testIdAttributeName: this._recorder.state.testIdAttributeName });
+      const { selector, selectors, position, scroll} = this._recorder.injectedScript.generateSelector(target, { testIdAttributeName: this._recorder.state.testIdAttributeName });
       if (target.nodeName === 'INPUT' && ['checkbox', 'radio'].includes((target as HTMLInputElement).type.toLowerCase())) {
         return {
           name: 'assertChecked',
@@ -635,6 +647,7 @@ class TextAssertionTool implements RecorderTool {
         return {
           name: 'assertValue',
           selector,
+          selectors,
           signals: [],
           value: (target as (HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement)).value,
         };
@@ -1224,6 +1237,22 @@ function positionForEvent(event: MouseEvent): Point |undefined {
   };
 }
 
+function positionForElement(element: HTMLElement | null): ElementPoint|undefined{
+
+  if (!element)
+    return undefined;
+
+  const rect = element.getBoundingClientRect();
+  return {
+    x: rect.left,
+    y: rect.top,
+    w: rect.width,
+    h: rect.height,
+    scrollX: element.ownerDocument?.defaultView?.scrollX,
+    scrollY: element.ownerDocument?.defaultView?.scrollY,
+  };
+}
+
 function consumeEvent(e: Event) {
   e.preventDefault();
   e.stopPropagation();
@@ -1232,6 +1261,7 @@ function consumeEvent(e: Event) {
 
 type HighlightModel = HighlightOptions & {
   selector: string;
+  selectors?: string[];
   elements: Element[];
 };
 

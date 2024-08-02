@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { Point } from '../../common/types';
+import type { ElementPoint, Point } from '../../common/types';
 
 export type ActionName =
   'check' |
@@ -35,11 +35,14 @@ export type ActionName =
 export type ActionBase = {
   name: ActionName,
   signals: Signal[],
+  selectors?: string[],
+  elementPosition?: ElementPoint,
 };
 
 export type ClickAction = ActionBase & {
   name: 'click',
   selector: string,
+  selectors?: string[],
   button: 'left' | 'middle' | 'right',
   modifiers: number,
   clickCount: number,
@@ -49,17 +52,23 @@ export type ClickAction = ActionBase & {
 export type CheckAction = ActionBase & {
   name: 'check',
   selector: string,
+  selectors?: string[],
+  position?: Point,
 };
 
 export type UncheckAction = ActionBase & {
   name: 'uncheck',
   selector: string,
+  selectors?: string[],
+  position?: Point,
 };
 
 export type FillAction = ActionBase & {
   name: 'fill',
   selector: string,
   text: string,
+  selectors?: string[],
+  position?: Point,
 };
 
 export type NavigateAction = ActionBase & {
@@ -81,12 +90,16 @@ export type PressAction = ActionBase & {
   selector: string,
   key: string,
   modifiers: number,
+  selectors?: string[],
+  position?: Point,
 };
 
 export type SelectAction = ActionBase & {
   name: 'select',
   selector: string,
   options: string[],
+  selectors?: string[],
+  position?: Point,
 };
 
 export type SetInputFilesAction = ActionBase & {
