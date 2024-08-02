@@ -10,35 +10,63 @@ import {
   RegistrationData,
   WebSocketClient,
 } from "./constants.js";
+import EventEmitter from "events";
 
-type SignalingServerParams = {
+export type SignalingServerParams = {
   expectedFollowers?: number;
   strict?: boolean;
   host?: string;
   port?: number;
+  onAction?: (action: any) => void;
+  blockedActions?: string[];
 };
 
-class SignalingServer {
+export enum SignalingServerEvents {
+  LEADER_ACTION = "leaderChange",
+  SESSION_STARTED = "sessionStarted",
+  SESSION_COMPROMISED = "sessionCompromised",
+  LEADER_CONNECTED = "leaderConnected",
+  FOLLOWER_CONNECTED = "followerConnected",
+  FOLLOWER_DISCONNECTED = "followerDisconnected",
+  LEADER_DISCONNECTED = "leaderDisconnected",
+}
+
+export type SignalingServerEvent = {
+  id: number;
+  type: SignalingServerEvents;
+  data: any;
+  created_at: Date;
+};
+
+
+class SignalingServer extends EventEmitter {
   private STRICT;
   private expectedFollowers;
+
+  private _eventCounter = 0;
 
   private leader: WebSocketClient | null = null;
   private followers: WebSocketClient[] = [];
   private _waitingForExpectedFollowers = true;
   private _restarting = false;
+  private _blockedActions: string[] = [];
 
   private _wss: WebSocketServer | null = null;
   private _host: string;
   private _port: number;
 
   constructor(params: SignalingServerParams) {
+    super();
     this.expectedFollowers = params.expectedFollowers || 1;
     this.STRICT = params.strict || true;
     this._host = params.host || "127.0.0.1";
     this._port = params.port || 8080;
+    this._blockedActions = params.blockedActions || [];
   }
 
   closeAllConnections() {
+
+    this.sendServerCloseMessages();
     if (this.leader) this.leader.channel.close();
     for (var follower of this.followers) {
       if (follower) follower.channel.close();
@@ -51,6 +79,11 @@ class SignalingServer {
     this.leader = null;
     this.followers = [];
     this._waitingForExpectedFollowers = true;
+  }
+
+  emitEvent(event: SignalingServerEvents, data: any, createdAt?: Date) {
+    this.emit(event, {id: this._eventCounter, type: event, data, created_at: createdAt || new Date() });
+    this._eventCounter++;
   }
 
   areExpectedPartiesConnected() {
@@ -68,7 +101,6 @@ class SignalingServer {
   }
 
   sendSetupCompleteMessages() {
-    console.log("Setup complete");
     this.leader?.channel.send(
       JSON.stringify({
         type: "management",
@@ -77,16 +109,31 @@ class SignalingServer {
         },
       })
     );
+
+    this.emitEvent(SignalingServerEvents.SESSION_STARTED, {
+      leader:(this.leader as any).id,
+      followers: this.followers.map((follower) => follower.id),
+    });
+  }
+
+  sendServerCloseMessages() {
+    for (var party of [this.leader, ...this.followers]) {
+      if (!party) continue;
+
+      party.channel.send(
+        JSON.stringify({
+          type: "management",
+          data: {
+            code: management.CLOSE,
+          },
+        })
+      );
+    }
   }
 
   sendSetupCompromizedMessages() {
-    try {
-      throw new Error("Setup compromised");
-    } catch (err) {
-      console.log(err.stack);
-    }
-
-    console.log("Setup compromised");
+    
+    console.error("Mirroring session compromised");
     for (var party of [this.leader, ...this.followers]) {
       if (!party) continue;
 
@@ -100,11 +147,22 @@ class SignalingServer {
       );
     }
 
+    this.emitEvent(SignalingServerEvents.SESSION_COMPROMISED, {
+      isLeader: this.leader !== null,
+      isFollower: this.followers.length > 0,
+    })
+
     if (this.STRICT) this.restart();
   }
 
   processLeaderChange(change: any) {
-    console.log("Leader change: ", change);
+
+    if (this._blockedActions.includes(change.action.name)) {
+      console.log("Blocked action: ", change.action.name);
+      return;
+    }
+   
+    this.emitEvent(SignalingServerEvents.LEADER_ACTION, change);
 
     for (var follower of this.followers) {
       if (!follower) continue;
@@ -161,6 +219,7 @@ class SignalingServer {
     // set the leader
     this.leader = client;
     console.log(`${new Date()}: Leader connected with id: ${client["id"]}`);
+    this.emitEvent(SignalingServerEvents.LEADER_CONNECTED, { id: client["id"] });
 
     // send connection success message
     if (this.areExpectedPartiesConnected()) this.sendSetupCompleteMessages();
@@ -174,6 +233,7 @@ class SignalingServer {
 
     client.channel.on("close", () => {
       globalThis.leader = null;
+      globalThis.emitEvent(SignalingServerEvents.LEADER_DISCONNECTED, { id: client.id });
       this.sendSetupCompromizedMessages();
     });
   }
@@ -211,6 +271,7 @@ class SignalingServer {
         this.followers.length
       }`
     );
+    this.emitEvent(SignalingServerEvents.FOLLOWER_CONNECTED, { id: client.id });
 
     // send connection success message
     client.channel.send(
@@ -228,6 +289,7 @@ class SignalingServer {
       globalThis.followers = globalThis.followers.filter(
         (follower) => follower.channel !== client.channel
       );
+      globalThis.emitEvent(SignalingServerEvents.FOLLOWER_DISCONNECTED, { id: client.id });
       this.sendSetupCompromizedMessages();
     });
 
@@ -297,11 +359,13 @@ class SignalingServer {
     process.on("SIGINT", () => {
       this.closeAllConnections();
       wss.close();
+      process.exit(0);
     });
 
     process.on("SIGTERM", () => {
       this.closeAllConnections();
       wss.close();
+      process.exit(0);
     });
 
   }
@@ -346,6 +410,7 @@ class SignalingServer {
   }
 
   stop() {
+    this.closeAllConnections();
     this._wss?.close();
   }
 }

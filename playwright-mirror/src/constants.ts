@@ -52,6 +52,7 @@ export const errors = {
 export const management = {
   CONNECTION_SUCCESS: "CONNECTION_SUCCESS",
   PARTIES_CHANGED: "PARTIES_CHANGED",
+  CLOSE: "CLOSE",
 }
 
 export type WebSocketClient = {

@@ -11,6 +11,7 @@ class SignalingServerDisconnectedError extends Error {
 export class LeaderClient {
   private _channel?: WebSocket;
   private _waitingForServerConnection = true;
+  private _expectingServerClose = false;
 
   /**
    * Delay for sending navigation signal after a fill signal
@@ -111,6 +112,10 @@ export class LeaderClient {
       case "PARTIES_CHANGED":
         // throw new SignalingServerDisconnectedError();
         break;
+      case "CLOSE":
+        this._expectingServerClose = true;
+
+        break;
     }
   }
 
@@ -120,7 +125,8 @@ export class LeaderClient {
   }
 
   processServerClose() {
-    throw new SignalingServerDisconnectedError();
+    if (!this._expectingServerClose) throw new SignalingServerDisconnectedError();
+    else process.emit("SIGINT");
   }
 
   private _sentUncommittedChange = false;
