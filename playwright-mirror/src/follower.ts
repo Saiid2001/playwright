@@ -7,6 +7,7 @@ import { BrowsingClientParams, wait } from "./utils.js";
 
 export type FollowerParams = BrowsingClientParams & {
   browserWsEndpoint?: string;
+  autoCreatePage?: boolean;
 };
 
 export class Follower {
@@ -21,9 +22,13 @@ export class Follower {
   private _wsEndpoint: string;
   private _waitingForServerConnection = true;
   private _ready = false;
+  private _page: any = null;
+  private _autoCreatePage: boolean;
+  private _expectingServerClose = false;
 
   constructor(params: FollowerParams) {
     this._params = params;
+    this._autoCreatePage = params.autoCreatePage && true;
     this._browserWsEndpoint =
       params.browserWsEndpoint || "ws://127.0.0.1:9222/0000";
 
@@ -49,6 +54,7 @@ export class Follower {
     if (!this._browser.isConnected()) return;
     if (this._channel.readyState !== WebSocket.OPEN) return;
     if (this._ready) return;
+    if (!this._page) return;
 
     this._channel.send(
       JSON.stringify({
@@ -60,6 +66,11 @@ export class Follower {
     );
 
     this._ready = true;
+  }
+
+  setPage(page: any) {
+    this._page = page;
+    this.tryFollowerReady();
   }
 
   _register() {
@@ -149,6 +160,9 @@ export class Follower {
       case "PARTIES_CHANGED":
         // throw new SignalingServerDisconnectedError();
         break;
+      case "CLOSE":
+        this._expectingServerClose = true;
+        break;
     }
   }
 
@@ -170,14 +184,14 @@ export class Follower {
    * @throws {SignalingServerDisconnectedError}
    */
   processServerClose() {
-    throw new SignalingServerDisconnectedError();
+    if (!this._expectingServerClose) throw new SignalingServerDisconnectedError();
+    else process.emit("SIGINT");
   }
-
   /**
    * Connect to the browser hosted on the `wsEndpoint`
    * @returns {Promise<void>}
    */
-  async connectBrowser() {
+  async connectBrowser(onBrowserConnected: ()=>Promise<void>){
     this._browser = await chromium.connect(this._browserWsEndpoint);
     this._browserContext = await this._browser.newContext({
       storageState: this._params.storage ? this._params.storage : undefined,
@@ -187,6 +201,10 @@ export class Follower {
       language: "javascript",
       mode: "recording",
     });
+
+    if(this._autoCreatePage) this._page = await this._browserContext.newPage();
+
+    await onBrowserConnected?.();
 
     this.tryFollowerReady();
   }
@@ -203,13 +221,17 @@ export class Follower {
     (this._browserContext as any)._performRecorderAction({ action: change });
   }
 
-  async start() {
+  async start(options?: {
+    onBrowserConnected?: () => Promise<void>
+  }) {
     process.on("SIGINT", () => {
       this._browserProcess?.kill();
+      process.exit(0);
     });
 
     process.on("SIGTERM", () => {
       this._browserProcess?.kill();
+      process.exit(0);
     });
 
     process.on("uncaughtException", (error) => {
@@ -232,7 +254,7 @@ export class Follower {
 
     await wait(3000);
 
-    await this.connectBrowser();
+    await this.connectBrowser(options?.onBrowserConnected);
     await this.tryFollowerReady();
     await this.waitForServerConnection();
   }
