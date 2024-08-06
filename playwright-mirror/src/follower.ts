@@ -4,10 +4,13 @@ import { SignalingServerDisconnectedError } from "./errors.js";
 import * as Constants from "./constants.js";
 import { chromium, Browser, BrowserContext } from "playwright";
 import { BrowsingClientParams, wait } from "./utils.js";
+import { kill } from "process";
 
 export type FollowerParams = BrowsingClientParams & {
   browserWsEndpoint?: string;
   autoCreatePage?: boolean;
+  traceOutputPath?: string;
+  onStop?: () => void;
 };
 
 export class Follower {
@@ -25,6 +28,7 @@ export class Follower {
   private _page: any = null;
   private _autoCreatePage: boolean;
   private _expectingServerClose = false;
+  private _stopping = false;
 
   constructor(params: FollowerParams) {
     this._params = params;
@@ -83,11 +87,8 @@ export class Follower {
     _channel.on("open", () => {
       globalThis.tryFollowerReady();
 
-      _channel.on("close", () => {
-        globalThis.processServerClose();
-      });
-
       _channel.on("error", () => {
+        console.log("Signaling server disconnected");
         throw new SignalingServerDisconnectedError();
       });
 
@@ -152,7 +153,7 @@ export class Follower {
    * @param data The data from the message
    * @returns {void}
    */
-  processServerManagementMessages(data: { code: string; payload?: any }) {
+  async processServerManagementMessages(data: { code: string; payload?: any }) {
     switch (data.code) {
       case "CONNECTION_SUCCESS":
         this._waitingForServerConnection = false;
@@ -162,6 +163,7 @@ export class Follower {
         break;
       case "CLOSE":
         this._expectingServerClose = true;
+        await this.processServerClose();
         break;
     }
   }
@@ -183,15 +185,28 @@ export class Follower {
    * @returns {void}
    * @throws {SignalingServerDisconnectedError}
    */
-  processServerClose() {
+  async processServerClose() {
     if (!this._expectingServerClose) throw new SignalingServerDisconnectedError();
-    else process.emit("SIGINT");
+    else {
+
+      if (this._stopping) return;
+      this._stopping = true;
+
+      await this._browserContext.tracing.stop({ path: this._params.traceOutputPath });
+
+      await this.stop();
+
+      await this._params.onStop?.();
+
+      this._browserProcess?.kill("SIGINT");
+      kill(process.pid, "SIGINT");
+    }
   }
   /**
    * Connect to the browser hosted on the `wsEndpoint`
    * @returns {Promise<void>}
    */
-  async connectBrowser(onBrowserConnected: ()=>Promise<void>){
+  async connectBrowser(onBrowserConnected: () => Promise<void>) {
     this._browser = await chromium.connect(this._browserWsEndpoint);
     this._browserContext = await this._browser.newContext({
       storageState: this._params.storage ? this._params.storage : undefined,
@@ -202,7 +217,7 @@ export class Follower {
       mode: "recording",
     });
 
-    if(this._autoCreatePage) this._page = await this._browserContext.newPage();
+    if (this._autoCreatePage) this._page = await this._browserContext.newPage();
 
     await onBrowserConnected?.();
 
@@ -218,31 +233,18 @@ export class Follower {
   onChange(change: any) {
     console.log("Leader changed to", change);
 
+    if (this._stopping) return;
+
     (this._browserContext as any)._performRecorderAction({ action: change });
   }
 
   async start(options?: {
     onBrowserConnected?: () => Promise<void>
   }) {
-    process.on("SIGINT", () => {
-      this._browserProcess?.kill();
-      process.exit(0);
-    });
-
-    process.on("SIGTERM", () => {
-      this._browserProcess?.kill();
-      process.exit(0);
-    });
 
     process.on("uncaughtException", (error) => {
-      try {
-        this._browserProcess?.kill();
-      } catch (e) {
-        console.error(e);
-      }
-
-      console.error(error);
-      process.exit(1);
+      console.log(error);
+      console.log(error.stack);
     });
 
     if (!this._isRemoteBrowser) {
@@ -260,11 +262,11 @@ export class Follower {
   }
 
   async stop() {
+
+    if (this._browserContext) await this._browserContext.close();
+    if (this._browser) await this._browser.close();
     this._channel.close();
 
-    if (this._browserProcess) {
-      this._browserProcess.kill();
-    }
   }
 
   static start(params: FollowerParams) {
@@ -285,10 +287,10 @@ export class Follower {
       "cli",
       "follower",
       `--`,
-      params.wsEndpoint?`--ws-endpoint`:``,
-      params.wsEndpoint? wsEndpoint : "",
-      params.browserWsEndpoint?`--browser-ws-endpoint`:``,
-      params.browserWsEndpoint?browserWsEndpoint:"",
+      params.wsEndpoint ? `--ws-endpoint` : ``,
+      params.wsEndpoint ? wsEndpoint : "",
+      params.browserWsEndpoint ? `--browser-ws-endpoint` : ``,
+      params.browserWsEndpoint ? browserWsEndpoint : "",
       params.storage ? `--storage=${params.storage}` : "",
       params.url ? `--url=${params.url}` : "",
     ]);

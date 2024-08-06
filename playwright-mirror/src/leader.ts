@@ -234,11 +234,6 @@ export class Leader {
 
   constructor(params: LeaderParams) {
     this._params = params;
-    // this._browserWsEndpoint =
-    // params.browserWsEndpoint || "ws://localhost:9222/0000";
-
-    // this._isRemoteBrowser = !!params.browserWsEndpoint;
-
     this._wsEndpoint = params.wsEndpoint || "ws://127.0.0.1:8080";
   }
 
