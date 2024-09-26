@@ -4,7 +4,7 @@ import { SignalingServerDisconnectedError } from "./errors.js";
 import * as Constants from "./constants.js";
 import { chromium, Browser, BrowserContext } from "playwright";
 import { BrowsingClientParams, wait } from "./utils.js";
-import { kill } from "process";
+import  kill  from "tree-kill";
 
 export type FollowerParams = BrowsingClientParams & {
   browserWsEndpoint?: string;
@@ -198,8 +198,14 @@ export class Follower {
 
       await this._params.onStop?.();
 
-      this._browserProcess?.kill("SIGINT");
-      kill(process.pid, "SIGINT");
+      const promise = new Promise<void>((resolve) => {
+        kill(this._browserProcess.pid, () => {
+          resolve();
+        }
+        );
+      });
+
+      await promise;
     }
   }
   /**
@@ -334,6 +340,8 @@ export class Follower {
 
     browser.on("close", (code, signal) => {
       console.log(`[follower-browser] exited with code ${code} ${signal}`);
+      // exit with the same code
+      process.exit(code);
     });
 
     this._browserProcess = browser;
